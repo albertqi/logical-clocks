@@ -126,7 +126,7 @@ void wake_up()
 			local_clock[i] = std::max(local_clock[i], recvd_clocks[i]);
 		}
 		++local_clock[process_num];
-		log();
+		log("RECEIVE");
 		return;
 	}
 
@@ -141,22 +141,22 @@ void wake_up()
 		case 1:
 			send_message(get_peer_paths()[to_min], local_clock);
 			++local_clock[process_num];
-			log();
+			log("SEND");
 			break;
 		case 2:
 			send_message(get_peer_paths()[to_max], local_clock);
 			++local_clock[process_num];
-			log();
+			log("SEND");
 			break;
 		case 3:
 			send_message(get_peer_paths()[to_min], local_clock);
 			send_message(get_peer_paths()[to_max], local_clock);
 			++local_clock[process_num];
-			log();
+			log("SEND");
 			break;
 		default:
 			++local_clock[process_num];
-			log();
+			log("INTERNAL");
 			break;
 	}
 }
