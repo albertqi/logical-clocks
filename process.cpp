@@ -1,3 +1,4 @@
+#include <atomic>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -6,6 +7,9 @@
 #include <random>
 #include <set>
 #include <thread>
+#include <queue>
+#include <mutex>
+#include <ofstream>
 
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -19,7 +23,11 @@
 int server_fd;
 int process_num;
 const char* socket_path;
-FILE* log_file;
+std::ofstream log_file;
+
+std::atomic<bool> recv_thread_running;
+std::mutex queue_mutex;
+std::queue<uint32_t*> message_queue;
 
 std::set<std::string> get_peer_paths()
 {
@@ -86,32 +94,36 @@ void send_message(std::string socket_path, uint32_t clocks[3])
 	memcpy(&buf[4], (unsigned char*) &clocks[1], 4);
 	memcpy(&buf[8], (unsigned char*) &clocks[2], 4);
 	
-	sendto(server_fd, buf, sizeof(buf), MSG_CONFIRM, (struct sockaddr*)&client_addr, sizeof(client_addr));
+	sendto(server_fd, buf, sizeof(buf), 0, (struct sockaddr*)&client_addr, sizeof(client_addr));
 }
 
 bool recv_message(uint32_t clocks_ret[3])
 {
-	std::string buf(1024, '\0');
-	int n, len;
-	n = recvfrom(server_fd, buf.data(), buf.size(), MSG_WAITALL, nullptr, nullptr);
-	if (errno == EAGAIN)
+	std::unique_lock lk(queue_mutex);
+	if (message_queue.size() == 0)
 	{
 		return false;
 	}
 
-	uint32_t* tmp = (uint32_t*) &buf[0];
-	clocks_ret[0] = *tmp;
-	tmp = (uint32_t*) &buf[4];
-	clocks_ret[1] = *tmp;
-	tmp = (uint32_t*) &buf[8];
-	clocks_ret[2] = *tmp;
+	uint32_t* clocks_recvd = message_queue.front();
+	message_queue.pop();
+	
+	memcpy(clocks_ret, clocks_recvd, 12);
+
+	delete[] clocks_recvd;
 
 	return true;
 }
 
-void log()
+void log(std::string log_message)
 {
-
+	auto system_time = std::chrono::high_resolution_clock::now();
+	std::unique_lock lk(queue_mutex);
+	int queue_size = message_queue.size();
+	lk.unlock();
+	log_file << "[" << std::to_string(system_time) << "]";
+	log_file << " - " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
+	log_file << " - " << queue_size << ": " << log_message << "\n";
 }
 
 void wake_up()
@@ -132,12 +144,34 @@ void wake_up()
 	}
 }
 
+void recv_loop()
+{
+	while (recv_thread_running)
+	{
+		std::string buf(12, '\0');
+		int n, len;
+		n = recvfrom(server_fd, buf.data(), buf.size(), MSG_WAITALL, nullptr, nullptr);
+
+		uint32_t* clocks_ret = new uint32_t[3];
+		uint32_t* tmp = (uint32_t*) &buf[0];
+		clocks_ret[0] = *tmp;
+		tmp = (uint32_t*) &buf[4];
+		clocks_ret[1] = *tmp;
+		tmp = (uint32_t*) &buf[8];
+		clocks_ret[2] = *tmp;
+
+		std::unique_lock lk(queue_mutex);
+		message_queue.push(clocks_ret);
+	}
+}
+
 void interrupt_handler(int signnum)
 {
+	recv_thread_running = false;
 	unlink(socket_path);
 	shutdown(server_fd, SHUT_RDWR);
 	close(server_fd);
-	fclose(log_file);
+	log_file.flush();
 	exit(0);
 }
 
@@ -175,14 +209,6 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	// Make the socket non-blocking.
-	int flags = fcntl(server_fd, F_GETFL, 0);
-	if (fcntl(server_fd, F_SETFL, flags | O_NONBLOCK))
-	{
-		perror("fcntl()");
-		return -1;
-	}
-
 	process_num = get_process_number();
 
 	struct sockaddr_un servaddr {};
@@ -203,10 +229,13 @@ int main(int argc, char **argv)
 
 	// Setup log
 	std::string log_path = std::string(LOG_PATH) + "process_" + std::to_string(process_num);
-	log_file = fopen(log_path.c_str(), "w");
+	log_file = std::ofstream(log_path);
 
 	// Setup keyboard interrupt handler.
 	std::signal(SIGINT, interrupt_handler);
+
+	std::thread recv_thread (recv_loop);
+	recv_thread.detach();
 
 	// Run the model process.
 	while (true)
