@@ -124,7 +124,7 @@ void log(std::string log_message)
 	std::unique_lock lk(queue_mutex);
 	int queue_size = message_queue.size();
 	lk.unlock();
-	log_file << "[" << std::to_string(system_time) << "]";
+	log_file << "[" << std::to_string(system_time.time_since_epoch().count()) << "]";
 	log_file << " - " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
 	log_file << " - " << queue_size << ": " << log_message << "\n";
 }
