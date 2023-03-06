@@ -242,7 +242,7 @@ int main(int argc, char **argv)
 
 	struct sockaddr_un servaddr {};
 	servaddr.sun_family = AF_UNIX;
-	std::string socket_name = std::string(SOCKET_PATH) + "/process_" + std::to_string(process_num) + ".log";
+	std::string socket_name = std::string(SOCKET_PATH) + "/process_" + std::to_string(process_num) + ".socket";
 	socket_path = socket_name.c_str();
 	strncpy(servaddr.sun_path, socket_path, sizeof(servaddr.sun_path) - 1);
 
@@ -257,7 +257,7 @@ int main(int argc, char **argv)
 	}
 
 	// Setup log
-	std::string log_path = std::string(LOG_PATH) + "process_" + std::to_string(process_num);
+	std::string log_path = std::string(LOG_PATH) + "/process_" + std::to_string(process_num) + ".log";
 	log_file = std::ofstream(log_path);
 
 	// Setup keyboard interrupt handler.
@@ -266,6 +266,13 @@ int main(int argc, char **argv)
 	std::thread recv_thread (recv_loop);
 	recv_thread.detach();
 
+	std::cout << "Waiting for other machines to initialize\n";
+	while (get_peer_paths().size() < 2)
+	{
+		// block
+	}
+
+	std::cout << "Starting the model\n";
 	// Run the model process.
 	while (true)
 	{
