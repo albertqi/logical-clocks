@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <csignal>
@@ -47,6 +48,7 @@ std::vector<std::string> get_peer_paths()
 		}
 	}
 
+	std::sort(paths.begin(), paths.end());
 	return paths;
 }
 
@@ -127,10 +129,17 @@ void log(std::string log_message)
 	log_file << "[" << std::to_string(system_time.time_since_epoch().count()) << "]";
 	log_file << " - " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
 	log_file << " - " << queue_size << ": " << log_message << "\n";
+	log_file.flush();
 }
 
 void wake_up()
 {
+	std::vector<std::string> peer_paths = get_peer_paths();
+	if (peer_paths.size() != 2)
+	{
+		return;
+	}
+
 	uint32_t recvd_clocks[3];
 	bool recvd_message = recv_message(recvd_clocks);
 	if (recvd_message) {
@@ -144,25 +153,25 @@ void wake_up()
 
 	int roll = uniform_random_number(1, 10);
 
-	int to_min = std::max(1 - process_num, 0);
-	int to_max = std::min(3 - process_num, 2);
+	int to_min = 0;
+	int to_max = 1;
 
 	// Do things
 	switch(roll)
 	{
 		case 1:
-			send_message(get_peer_paths()[to_min], local_clock);
+			send_message(peer_paths[to_min], local_clock);
 			++local_clock[process_num];
 			log("SEND");
 			break;
 		case 2:
-			send_message(get_peer_paths()[to_max], local_clock);
+			send_message(peer_paths[to_max], local_clock);
 			++local_clock[process_num];
 			log("SEND");
 			break;
 		case 3:
-			send_message(get_peer_paths()[to_min], local_clock);
-			send_message(get_peer_paths()[to_max], local_clock);
+			send_message(peer_paths[to_min], local_clock);
+			send_message(peer_paths[to_max], local_clock);
 			++local_clock[process_num];
 			log("SEND");
 			break;
@@ -200,7 +209,6 @@ void interrupt_handler(int signnum)
 	unlink(socket_path);
 	shutdown(server_fd, SHUT_RDWR);
 	close(server_fd);
-	log_file.flush();
 	exit(0);
 }
 
@@ -263,6 +271,7 @@ int main(int argc, char **argv)
 	// Setup keyboard interrupt handler.
 	std::signal(SIGINT, interrupt_handler);
 
+	recv_thread_running = true;
 	std::thread recv_thread (recv_loop);
 	recv_thread.detach();
 
