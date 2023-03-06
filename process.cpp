@@ -5,6 +5,7 @@
 #include <iostream>
 #include <random>
 #include <set>
+#include <vector>
 #include <thread>
 
 #include <fcntl.h>
@@ -21,9 +22,11 @@ int process_num;
 const char* socket_path;
 FILE* log_file;
 
-std::set<std::string> get_peer_paths()
+uint32_t local_clock[3];
+
+std::vector<std::string> get_peer_paths()
 {
-	std::set<std::string> paths;
+	std::vector<std::string> paths;
 	for (const auto& entry : std::filesystem::directory_iterator(SOCKET_PATH))
 	{
 		if (entry.is_socket())
@@ -31,7 +34,7 @@ std::set<std::string> get_peer_paths()
 			std::string pathname = entry.path().string();
 			if (socket_path == nullptr || strncmp(socket_path, pathname.c_str(), 107) != 0)
 			{
-				paths.insert(pathname);
+				paths.push_back(pathname);
 			}
 		}
 	}
@@ -86,7 +89,7 @@ void send_message(std::string socket_path, uint32_t clocks[3])
 	memcpy(&buf[4], (unsigned char*) &clocks[1], 4);
 	memcpy(&buf[8], (unsigned char*) &clocks[2], 4);
 	
-	sendto(server_fd, buf, sizeof(buf), MSG_CONFIRM, (struct sockaddr*)&client_addr, sizeof(client_addr));
+	sendto(server_fd, buf, sizeof(buf), 0, (struct sockaddr*)&client_addr, sizeof(client_addr));
 }
 
 bool recv_message(uint32_t clocks_ret[3])
@@ -116,18 +119,45 @@ void log()
 
 void wake_up()
 {
+	uint32_t recvd_clocks[3];
+	bool recvd_message = recv_message(recvd_clocks);
+	if (recvd_message) {
+		for (int i = 0; i < 3; ++i) {
+			local_clock[i] = std::max(local_clock[i], recvd_clocks[i]);
+		}
+		++local_clock[process_num];
+		log();
+		return;
+	}
+
 	int roll = uniform_random_number(1, 10);
 
 	// Do things
 	switch(roll)
 	{
 		case 1:
+			int to = std::max(1 - process_num, 0);
+			send_message(get_peer_paths()[to], local_clock);
+			++local_clock[process_num];
+			log();
 			break;
 		case 2:
+			int to = std::min(3 - process_num, 2);
+			send_message(get_peer_paths()[to], local_clock);
+			++local_clock[process_num];
+			log();
 			break;
 		case 3:
+			int to = std::max(1 - process_num, 0);
+			send_message(get_peer_paths()[to], local_clock);
+			to = std::min(3 - process_num, 2);
+			send_message(get_peer_paths()[to], local_clock);
+			++local_clock[process_num];
+			log();
 			break;
 		default:
+			++local_clock[process_num];
+			log();
 			break;
 	}
 }
