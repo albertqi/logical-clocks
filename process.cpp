@@ -132,26 +132,25 @@ void wake_up()
 
 	int roll = uniform_random_number(1, 10);
 
+	int to_min = std::max(1 - process_num, 0);
+	int to_max = std::min(3 - process_num, 2);
+
 	// Do things
 	switch(roll)
 	{
 		case 1:
-			int to = std::max(1 - process_num, 0);
-			send_message(get_peer_paths()[to], local_clock);
+			send_message(get_peer_paths()[to_min], local_clock);
 			++local_clock[process_num];
 			log();
 			break;
 		case 2:
-			int to = std::min(3 - process_num, 2);
-			send_message(get_peer_paths()[to], local_clock);
+			send_message(get_peer_paths()[to_max], local_clock);
 			++local_clock[process_num];
 			log();
 			break;
 		case 3:
-			int to = std::max(1 - process_num, 0);
-			send_message(get_peer_paths()[to], local_clock);
-			to = std::min(3 - process_num, 2);
-			send_message(get_peer_paths()[to], local_clock);
+			send_message(get_peer_paths()[to_min], local_clock);
+			send_message(get_peer_paths()[to_max], local_clock);
 			++local_clock[process_num];
 			log();
 			break;
