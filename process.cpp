@@ -127,8 +127,8 @@ void log(std::string log_message)
 	int queue_size = message_queue.size();
 	lk.unlock();
 	log_file << "[" << std::to_string(system_time.time_since_epoch().count()) << "]";
-	log_file << " - " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
-	log_file << " - " << queue_size << ": " << log_message << "\n";
+	log_file << " | " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
+	log_file << " | " << queue_size << " | " << log_message << "\n";
 	log_file.flush();
 }
 
@@ -155,7 +155,7 @@ void wake_up()
 
 	int to_min = 0;
 	int to_max = 1;
-
+	
 	// Do things
 	switch(roll)
 	{
@@ -173,7 +173,7 @@ void wake_up()
 			send_message(peer_paths[to_min], local_clock);
 			send_message(peer_paths[to_max], local_clock);
 			++local_clock[process_num];
-			log("SEND");
+			log("DOUBLE SEND");
 			break;
 		default:
 			++local_clock[process_num];
@@ -214,13 +214,6 @@ void interrupt_handler(int signnum)
 
 int main(int argc, char **argv)
 {
-	// TODO: Replace this with get_random_clock_rate()
-	if (argc < 2)
-	{
-		std::cerr << "Usage: ./process CLOCK_RATE" << std::endl;
-		return -1;
-	}
-
 	// Make temporary directory for socket files.
 	if (system("mkdir -p " SOCKET_PATH) < 0)
 	{
@@ -234,7 +227,15 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	int clock_rate_hz = std::stoi(argv[1]);
+	int clock_rate_hz;	
+	if (argc > 2)
+	{
+		clock_rate_hz = std::stoi(argv[1]);
+	}
+	else
+	{
+		clock_rate_hz = uniform_random_number(1, 6);
+	}
 	int sleep_time_ms = (int)(1.0 / clock_rate_hz * 1000);
 
 	// Network Setup.
@@ -280,7 +281,6 @@ int main(int argc, char **argv)
 	{
 		// block
 	}
-
 	std::cout << "Starting the model\n";
 	// Run the model process.
 	while (true)
