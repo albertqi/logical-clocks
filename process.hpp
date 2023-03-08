@@ -8,7 +8,7 @@
 #include <fstream>
 
 /**
- * Returns list of all sockets found in SOCEKT_PATH
+ * Returns list of all sockets found in SOCKET_PATH.
  */
 std::vector<std::string> get_peer_paths();
 
@@ -33,13 +33,13 @@ public:
     ~Process();
 
     /**
-     * Sends a datagram to socket_path
+     * Sends a datagram to socket_path.
      */
     void send_message(std::string socket_path, uint32_t clocks[3]);
 
     /**
-     * Pulls the next datagram from the rx queue. If no message is available,
-     * returns false.
+     * Pulls the next datagram from the rx queue. Returns false if
+     * no message is available.
      */
     bool recv_message(uint32_t clocks_ret[3]);
 
@@ -49,7 +49,7 @@ public:
     void log(std::string log_message);
 
     /**
-     * Performs the actions defined in the sepc.
+     * Performs the appropriate action based on roll.
      */
     void wake_up(int roll);
 

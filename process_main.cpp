@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	std::cout << "Waiting for other machines to initialize\n";
 	while (get_peer_paths().size() < 3)
 	{
-		// block
+		// Block.
 	}
 	std::cout << "Starting the model\n";
 

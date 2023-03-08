@@ -66,9 +66,9 @@ int get_process_number()
 
 int uniform_random_number(int start_range, int end_range)
 {
-	std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<> distr(start_range, end_range); // define the range
+	std::random_device rd; // Obtain a random number from hardware.
+    std::mt19937 gen(rd()); // Seed the generator.
+    std::uniform_int_distribution<> distr(start_range, end_range); // Define the range.
 	return distr(gen);
 }
 
@@ -114,7 +114,7 @@ int Process::setup_network_and_log()
 		return -1;
 	}
 
-	// Setup log
+	// Set up log.
 	std::string log_path = std::string(LOG_PATH) + "/process_" + std::to_string(process_num) + ".log";
 	log_file = std::ofstream(log_path);
 
@@ -204,7 +204,7 @@ void Process::wake_up(int roll)
 		return;
 	}
 
-	// If a message is available, do a receive.
+	// If a message is available, then do a receive.
 	uint32_t recvd_clocks[3];
 	bool recvd_message = recv_message(recvd_clocks);
 	if (recvd_message) {
@@ -220,7 +220,7 @@ void Process::wake_up(int roll)
 	int to_min = std::max(1 - process_num, 0);
 	int to_max = std::min(3 - process_num, 2);
 	
-	// Do spec things.
+	// Perform operation based on roll.
 	switch(roll)
 	{
 		case 1:
