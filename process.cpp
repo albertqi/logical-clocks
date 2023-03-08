@@ -138,10 +138,15 @@ Process::Process()
 	local_clock[0] = 0;
 	local_clock[1] = 0;
 	local_clock[2] = 0;
+
+	recv_thread_running = true;
+	std::thread recv_thread (&Process::recv_loop, this);
+	recv_thread.detach();
 }
 
 Process::~Process()
 {
+	recv_thread_running = false;
 	cleanup_network_and_log();
 }
 
@@ -256,16 +261,4 @@ void Process::recv_loop()
 		std::unique_lock lk(queue_mutex);
 		message_queue.push(clocks_ret);
 	}
-}
-
-void Process::start_process()
-{
-	recv_thread_running = true;
-	std::thread recv_thread (&Process::recv_loop, this);
-	recv_thread.detach();
-}
-
-void Process::stop_process()
-{
-	recv_thread_running = false;
 }

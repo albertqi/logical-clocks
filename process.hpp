@@ -5,10 +5,7 @@
 #include <queue>
 #include <string>
 #include <vector>
-
-int setup_network_and_log(int& process_num, int& server_fd, std::string& socket_path, std::ofstream& log_file);
-
-void cleanup_network_and_log(int process_num, int server_fd, std::string socket_path, std::ofstream& log_file);
+#include <fstream>
 
 std::vector<std::string> get_peer_paths();
 
@@ -30,10 +27,6 @@ public:
     void log(std::string log_message);
 
     void wake_up(int roll);
-
-    void start_process();
-
-    void stop_process();
 
     int setup_network_and_log();
 

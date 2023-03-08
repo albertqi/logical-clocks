@@ -9,7 +9,6 @@ Process* process;
 
 void interrupt_handler(int signnum)
 {
-	process->stop_process();
     delete process;
 	exit(0);
 }
@@ -41,8 +40,6 @@ int main(int argc, char **argv)
 		// block
 	}
 	std::cout << "Starting the model\n";
-
-    process->start_process();
 
 	// Run the model process.
 	while (true)
