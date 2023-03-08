@@ -94,6 +94,8 @@ void run_tests()
     p0.wake_up(10);
     p1.wake_up(10);
     p1.wake_up(10);
+
+    // Log file for `process_0`
     log_file = fopen(LOG_PATH "/process_0.log", "r");
     test(log_file != nullptr, "log file exists process 0");
     if (log_file != nullptr)
@@ -108,6 +110,8 @@ void run_tests()
         test(queue_size == 0, "log queue size process 0");
         test((std::string)operation == "RECEIVE", "log operation process 0");
     }
+
+    // Log file for `process_1`
     log_file = fopen(LOG_PATH "/process_1.log", "r");
     test(log_file != nullptr, "log file exists process 1");
     if (log_file != nullptr)
@@ -124,6 +128,8 @@ void run_tests()
         test((std::string)operation == "RECEIVE", "log operation process 1 again");
         fclose(log_file);
     }
+
+    // Log file for `process_2`
     log_file = fopen(LOG_PATH "/process_2.log", "r");
     test(log_file != nullptr, "log file exists process 2");
     if (log_file != nullptr)
