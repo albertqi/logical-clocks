@@ -1,4 +1,4 @@
-Running process at 1Hz
+Process 2 running at 1Hz
 [1678249201806916889] | 0,0,1 | 0 | SEND
 [1678249202807073843] | 0,3,2 | 2 | RECEIVE
 [1678249203807346943] | 0,4,3 | 3 | RECEIVE
