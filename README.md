@@ -1,6 +1,6 @@
 # CS 262: Logical Clocks
 
-Design choices and key takeaways are written in notebook.md.
+Design choices and key takeaways are written in `notebook.md`.
 
 ## Build Information
 
