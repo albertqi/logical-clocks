@@ -33,7 +33,8 @@ void run_tests()
     test(paths[2] == SOCKET_PATH "/process_2.socket", "get_peer_paths process 2");
 
     // Test `send_message`
-    p0.send_message(paths[1], (uint32_t[]){0, 0, 0});
+    uint32_t clock_send[3] = {0, 0, 0};
+    p0.send_message(paths[1], clock_send);
     test(true, "send_message runs");
 
     // Test `recv_message`
