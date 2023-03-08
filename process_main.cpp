@@ -5,16 +5,12 @@
 
 #include "process.hpp"
 
-int process_num, server_fd;
-std::string socket_path;
-std::ofstream log_file;
-
 Process* process;
 
 void interrupt_handler(int signnum)
 {
 	process->stop_process();
-    cleanup_network_and_log(process_num, server_fd, socket_path, log_file);
+    delete process;
 	exit(0);
 }
 
@@ -29,20 +25,15 @@ int main(int argc, char **argv)
 	{
 		clock_rate_hz = uniform_random_number(1, 6);
 	}
-	int sleep_time_ms = (int)(1.0 / clock_rate_hz * 1000);
+	
+    int sleep_time_ms = (int)(1.0 / clock_rate_hz * 1000);
 
-	// Network Setup.
-	std::cout << "Setuping up process network...\n";
-	int ret = setup_network_and_log(process_num, server_fd, socket_path, log_file);
-	if (ret < 0)
-	{
-		return ret;
-	}
+    std::cout << "Running process at " << clock_rate_hz << "Hz\n";
 
 	// Setup keyboard interrupt handler.
 	std::signal(SIGINT, interrupt_handler);
 
-	process = new Process(process_num, server_fd, socket_path, log_file);
+	process = new Process();
 
 	std::cout << "Waiting for other machines to initialize\n";
 	while (get_peer_paths().size() < 3)

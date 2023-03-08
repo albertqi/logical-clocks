@@ -19,7 +19,9 @@ int uniform_random_number(int start_range, int end_range);
 class Process
 {
 public:
-    Process(int process_num, int server_fd, std::string socket_path, std::ofstream& log_file);
+    Process();
+
+    ~Process();
 
     void send_message(std::string socket_path, uint32_t clocks[3]);
 
@@ -33,11 +35,15 @@ public:
 
     void stop_process();
 
+    int setup_network_and_log();
+
+    void cleanup_network_and_log();
+
 private:
     int server_fd;
     int process_num;
     std::string socket_path;
-    std::ofstream& log_file;
+    std::ofstream log_file;
 
     std::atomic<bool> recv_thread_running;
     std::mutex queue_mutex;

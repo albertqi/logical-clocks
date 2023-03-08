@@ -72,7 +72,7 @@ int uniform_random_number(int start_range, int end_range)
 	return distr(gen);
 }
 
-int setup_network_and_log(int& process_num, int& server_fd, std::string& socket_path, std::ofstream& log_file)
+int Process::setup_network_and_log()
 {
 	// Make temporary directory for socket files.
 	if (system("mkdir -p " SOCKET_PATH) < 0)
@@ -120,19 +120,29 @@ int setup_network_and_log(int& process_num, int& server_fd, std::string& socket_
 	return 0;
 }
 
-void cleanup_network_and_log(int process_num, int server_fd, std::string socket_path, std::ofstream& log_file)
+void Process::cleanup_network_and_log()
 {
 	unlink(socket_path.c_str());
 	shutdown(server_fd, SHUT_RDWR);
 	close(server_fd);
 }
 
-Process::Process(int process_num, int server_fd, std::string socket_path, std::ofstream& log_file) : 
-	process_num(process_num), server_fd(server_fd), socket_path(socket_path), log_file(log_file)
+Process::Process()
 {
+	int ret = setup_network_and_log();
+	if (ret < 0)
+	{
+		exit(-1);
+	}
+
 	local_clock[0] = 0;
 	local_clock[1] = 0;
 	local_clock[2] = 0;
+}
+
+Process::~Process()
+{
+	cleanup_network_and_log();
 }
 
 void Process::send_message(std::string socket_path, uint32_t clocks[3])
