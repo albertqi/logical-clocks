@@ -29,8 +29,6 @@ public:
 
     void wake_up(int roll);
 
-    void recv_loop();
-
     void start_process();
 
     void stop_process();
@@ -46,4 +44,6 @@ private:
     std::queue<uint32_t*> message_queue;
 
     uint32_t local_clock[3];
+
+    void recv_loop();
 };
