@@ -1,4 +1,4 @@
-Running process at 3Hz
+Process 0 running at 3Hz
 [1678249293506174705] | 1,0,0 | 0 | SEND
 [1678249293839671649] | 2,0,0 | 0 | RECEIVE
 [1678249294172902286] | 3,0,0 | 0 | INTERNAL
