@@ -88,6 +88,7 @@ int Process::setup_network_and_log()
 		return -1;
 	}
 
+	// Network setup.
 	server_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (server_fd < 0)
 	{
@@ -196,12 +197,14 @@ void Process::log(std::string log_message)
 
 void Process::wake_up(int roll)
 {
+	// Check that peers are still running.
 	std::vector<std::string> peer_paths = get_peer_paths();
 	if (peer_paths.size() != 3)
 	{
 		return;
 	}
 
+	// If a message is available, do a receive.
 	uint32_t recvd_clocks[3];
 	bool recvd_message = recv_message(recvd_clocks);
 	if (recvd_message) {
@@ -213,10 +216,11 @@ void Process::wake_up(int roll)
 		return;
 	}
 
+	// Calculate which indices are peers.
 	int to_min = std::max(1 - process_num, 0);
 	int to_max = std::min(3 - process_num, 2);
 	
-	// Do things
+	// Do spec things.
 	switch(roll)
 	{
 		case 1:
