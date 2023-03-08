@@ -109,7 +109,7 @@ void run_tests()
         test((std::string)operation == "RECEIVE", "log operation process 0");
     }
     log_file = fopen(LOG_PATH "/process_1.log", "r");
-    test(log_file != nullptr, "log file exists process 0");
+    test(log_file != nullptr, "log file exists process 1");
     if (log_file != nullptr)
     {
         char buffer[256], clocks[256], operation[256];
