@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -7,10 +6,7 @@
 #include <iostream>
 #include <random>
 #include <set>
-#include <vector>
 #include <thread>
-#include <queue>
-#include <mutex>
 #include <fstream>
 
 #include <fcntl.h>
@@ -24,17 +20,6 @@
 #define SOCKET_PATH BASE_PATH"/socket"
 #define LOG_PATH BASE_PATH"/log"
 
-int server_fd;
-int process_num;
-const char* socket_path;
-std::ofstream log_file;
-
-std::atomic<bool> recv_thread_running;
-std::mutex queue_mutex;
-std::queue<uint32_t*> message_queue;
-
-uint32_t local_clock[3];
-
 std::vector<std::string> get_peer_paths()
 {
 	std::vector<std::string> paths;
@@ -43,10 +28,7 @@ std::vector<std::string> get_peer_paths()
 		if (entry.is_socket())
 		{
 			std::string pathname = entry.path().string();
-			if (socket_path == nullptr || strncmp(socket_path, pathname.c_str(), 107) != 0)
-			{
-				paths.push_back(pathname);
-			}
+			paths.push_back(pathname);
 		}
 	}
 
@@ -90,120 +72,7 @@ int uniform_random_number(int start_range, int end_range)
 	return distr(gen);
 }
 
-void send_message(std::string socket_path, uint32_t clocks[3])
-{
-	struct sockaddr_un client_addr {};
-	client_addr.sun_family = AF_UNIX;
-	strncpy(client_addr.sun_path, socket_path.c_str(), sizeof(client_addr.sun_path) - 1);
-
-	char buf[12];
-	memcpy(&buf[0], (unsigned char*) &clocks[0], 4);
-	memcpy(&buf[4], (unsigned char*) &clocks[1], 4);
-	memcpy(&buf[8], (unsigned char*) &clocks[2], 4);
-	
-	sendto(server_fd, buf, sizeof(buf), 0, (struct sockaddr*)&client_addr, sizeof(client_addr));
-}
-
-bool recv_message(uint32_t clocks_ret[3])
-{
-	std::unique_lock lk(queue_mutex);
-	if (message_queue.size() == 0)
-	{
-		return false;
-	}
-
-	uint32_t* clocks_recvd = message_queue.front();
-	message_queue.pop();
-	
-	memcpy(clocks_ret, clocks_recvd, 12);
-
-	delete[] clocks_recvd;
-
-	return true;
-}
-
-void log(std::string log_message)
-{
-	auto system_time = std::chrono::high_resolution_clock::now();
-	std::unique_lock lk(queue_mutex);
-	int queue_size = message_queue.size();
-	lk.unlock();
-	log_file << "[" << std::to_string(system_time.time_since_epoch().count()) << "]";
-	log_file << " | " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
-	log_file << " | " << queue_size << " | " << log_message << "\n";
-	log_file.flush();
-}
-
-void wake_up(int roll)
-{
-	std::vector<std::string> peer_paths = get_peer_paths();
-	if (peer_paths.size() != 2)
-	{
-		return;
-	}
-
-	uint32_t recvd_clocks[3];
-	bool recvd_message = recv_message(recvd_clocks);
-	if (recvd_message) {
-		for (int i = 0; i < 3; ++i) {
-			local_clock[i] = std::max(local_clock[i], recvd_clocks[i]);
-		}
-		++local_clock[process_num];
-		log("RECEIVE");
-		return;
-	}
-
-	int to_min = 0;
-	int to_max = 1;
-	
-	// Do things
-	switch(roll)
-	{
-		case 1:
-			send_message(peer_paths[to_min], local_clock);
-			++local_clock[process_num];
-			log("SEND");
-			break;
-		case 2:
-			send_message(peer_paths[to_max], local_clock);
-			++local_clock[process_num];
-			log("SEND");
-			break;
-		case 3:
-			send_message(peer_paths[to_min], local_clock);
-			send_message(peer_paths[to_max], local_clock);
-			++local_clock[process_num];
-			log("DOUBLE SEND");
-			break;
-		default:
-			++local_clock[process_num];
-			log("INTERNAL");
-			break;
-	}
-}
-
-void recv_loop()
-{
-	while (recv_thread_running)
-	{
-		std::string buf(12, '\0');
-		int n, len;
-		n = recvfrom(server_fd, buf.data(), buf.size(), MSG_WAITALL, nullptr, nullptr);
-
-		uint32_t* clocks_ret = new uint32_t[3];
-		uint32_t* tmp = (uint32_t*) &buf[0];
-		clocks_ret[0] = *tmp;
-		tmp = (uint32_t*) &buf[4];
-		clocks_ret[1] = *tmp;
-		tmp = (uint32_t*) &buf[8];
-		clocks_ret[2] = *tmp;
-
-		std::unique_lock lk(queue_mutex);
-		message_queue.push(clocks_ret);
-	}
-}
-
-int setup_network_and_log()
+int setup_network_and_log(int& process_num, int& server_fd, std::string& socket_path, std::ofstream& log_file)
 {
 	// Make temporary directory for socket files.
 	if (system("mkdir -p " SOCKET_PATH) < 0)
@@ -231,13 +100,13 @@ int setup_network_and_log()
 	struct sockaddr_un servaddr {};
 	servaddr.sun_family = AF_UNIX;
 	std::string socket_name = std::string(SOCKET_PATH) + "/process_" + std::to_string(process_num) + ".socket";
-	socket_path = socket_name.c_str();
-	strncpy(servaddr.sun_path, socket_path, sizeof(servaddr.sun_path) - 1);
+	socket_path = socket_name;
+	strncpy(servaddr.sun_path, socket_path.c_str(), sizeof(servaddr.sun_path) - 1);
 
 	std::cout << socket_path << "\n";
 
 	// Bind to file path.
-	unlink(socket_path);
+	unlink(socket_path.c_str());
 	if (bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
 	{
 		perror("bind()");
@@ -251,22 +120,142 @@ int setup_network_and_log()
 	return 0;
 }
 
-void cleanup_network_and_log()
+void cleanup_network_and_log(int process_num, int server_fd, std::string socket_path, std::ofstream& log_file)
 {
-	recv_thread_running = false;
-	unlink(socket_path);
+	unlink(socket_path.c_str());
 	shutdown(server_fd, SHUT_RDWR);
 	close(server_fd);
 }
 
-void start_process()
+Process::Process(int process_num, int server_fd, std::string socket_path, std::ofstream& log_file) : 
+	process_num(process_num), server_fd(server_fd), socket_path(socket_path), log_file(log_file)
+{
+	local_clock[0] = 0;
+	local_clock[1] = 0;
+	local_clock[2] = 0;
+}
+
+void Process::send_message(std::string socket_path, uint32_t clocks[3])
+{
+	struct sockaddr_un client_addr {};
+	client_addr.sun_family = AF_UNIX;
+	strncpy(client_addr.sun_path, socket_path.c_str(), sizeof(client_addr.sun_path) - 1);
+
+	char buf[12];
+	memcpy(&buf[0], (unsigned char*) &clocks[0], 4);
+	memcpy(&buf[4], (unsigned char*) &clocks[1], 4);
+	memcpy(&buf[8], (unsigned char*) &clocks[2], 4);
+	
+	sendto(server_fd, buf, sizeof(buf), 0, (struct sockaddr*)&client_addr, sizeof(client_addr));
+}
+
+bool Process::recv_message(uint32_t clocks_ret[3])
+{
+	std::unique_lock lk(queue_mutex);
+	if (message_queue.size() == 0)
+	{
+		return false;
+	}
+
+	uint32_t* clocks_recvd = message_queue.front();
+	message_queue.pop();
+	
+	memcpy(clocks_ret, clocks_recvd, 12);
+
+	delete[] clocks_recvd;
+
+	return true;
+}
+
+void Process::log(std::string log_message)
+{
+	auto system_time = std::chrono::high_resolution_clock::now();
+	std::unique_lock lk(queue_mutex);
+	int queue_size = message_queue.size();
+	lk.unlock();
+	log_file << "[" << std::to_string(system_time.time_since_epoch().count()) << "]";
+	log_file << " | " << local_clock[0] << "," << local_clock[1] << "," << local_clock[2];
+	log_file << " | " << queue_size << " | " << log_message << "\n";
+	log_file.flush();
+}
+
+void Process::wake_up(int roll)
+{
+	std::vector<std::string> peer_paths = get_peer_paths();
+	if (peer_paths.size() != 3)
+	{
+		return;
+	}
+
+	uint32_t recvd_clocks[3];
+	bool recvd_message = recv_message(recvd_clocks);
+	if (recvd_message) {
+		for (int i = 0; i < 3; ++i) {
+			local_clock[i] = std::max(local_clock[i], recvd_clocks[i]);
+		}
+		++local_clock[process_num];
+		log("RECEIVE");
+		return;
+	}
+
+	int to_min = std::max(1 - process_num, 0);
+	int to_max = std::min(3 - process_num, 2);
+	
+	// Do things
+	switch(roll)
+	{
+		case 1:
+			send_message(peer_paths[to_min], local_clock);
+			++local_clock[process_num];
+			log("SEND");
+			break;
+		case 2:
+			send_message(peer_paths[to_max], local_clock);
+			++local_clock[process_num];
+			log("SEND");
+			break;
+		case 3:
+			send_message(peer_paths[to_min], local_clock);
+			send_message(peer_paths[to_max], local_clock);
+			++local_clock[process_num];
+			log("DOUBLE SEND");
+			break;
+		default:
+			++local_clock[process_num];
+			log("INTERNAL");
+			break;
+	}
+}
+
+void Process::recv_loop()
+{
+	while (recv_thread_running)
+	{
+		std::string buf(12, '\0');
+		int n, len;
+		n = recvfrom(server_fd, buf.data(), buf.size(), MSG_WAITALL, nullptr, nullptr);
+
+		uint32_t* clocks_ret = new uint32_t[3];
+		uint32_t* tmp = (uint32_t*) &buf[0];
+		clocks_ret[0] = *tmp;
+		tmp = (uint32_t*) &buf[4];
+		clocks_ret[1] = *tmp;
+		tmp = (uint32_t*) &buf[8];
+		clocks_ret[2] = *tmp;
+
+		std::unique_lock lk(queue_mutex);
+		message_queue.push(clocks_ret);
+	}
+}
+
+void Process::start_process()
 {
 	recv_thread_running = true;
-	std::thread recv_thread (recv_loop);
+	std::thread recv_thread (&Process::recv_loop, this);
 	recv_thread.detach();
 }
 
-void stop_process()
+void Process::stop_process()
 {
 	recv_thread_running = false;
 }
