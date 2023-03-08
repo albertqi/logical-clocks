@@ -18,6 +18,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include "process.hpp"
+
 #define BASE_PATH "/tmp/logical_clocks"
 #define SOCKET_PATH BASE_PATH"/socket"
 #define LOG_PATH BASE_PATH"/log"
@@ -132,7 +134,7 @@ void log(std::string log_message)
 	log_file.flush();
 }
 
-void wake_up()
+void wake_up(int roll)
 {
 	std::vector<std::string> peer_paths = get_peer_paths();
 	if (peer_paths.size() != 2)
@@ -150,8 +152,6 @@ void wake_up()
 		log("RECEIVE");
 		return;
 	}
-
-	int roll = uniform_random_number(1, 10);
 
 	int to_min = 0;
 	int to_max = 1;
@@ -203,16 +203,7 @@ void recv_loop()
 	}
 }
 
-void interrupt_handler(int signnum)
-{
-	recv_thread_running = false;
-	unlink(socket_path);
-	shutdown(server_fd, SHUT_RDWR);
-	close(server_fd);
-	exit(0);
-}
-
-int main(int argc, char **argv)
+int setup_network_and_log()
 {
 	// Make temporary directory for socket files.
 	if (system("mkdir -p " SOCKET_PATH) < 0)
@@ -220,26 +211,14 @@ int main(int argc, char **argv)
 		perror("Failed to create directory /tmp/logical_clocks");
 		return -1;
 	}
-	// Make temporary directory for socket files.
+
+	// Make temporary directory for log files.
 	if (system("mkdir -p " LOG_PATH) < 0)
 	{
 		perror("Failed to create directory /tmp/logical_clocks");
 		return -1;
 	}
 
-	int clock_rate_hz;	
-	if (argc > 2)
-	{
-		clock_rate_hz = std::stoi(argv[1]);
-	}
-	else
-	{
-		clock_rate_hz = uniform_random_number(1, 6);
-	}
-	int sleep_time_ms = (int)(1.0 / clock_rate_hz * 1000);
-
-	// Network Setup.
-	std::cout << "Setuping up process network...\n";
 	server_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (server_fd < 0)
 	{
@@ -269,26 +248,25 @@ int main(int argc, char **argv)
 	std::string log_path = std::string(LOG_PATH) + "/process_" + std::to_string(process_num) + ".log";
 	log_file = std::ofstream(log_path);
 
-	// Setup keyboard interrupt handler.
-	std::signal(SIGINT, interrupt_handler);
+	return 0;
+}
 
+void cleanup_network_and_log()
+{
+	recv_thread_running = false;
+	unlink(socket_path);
+	shutdown(server_fd, SHUT_RDWR);
+	close(server_fd);
+}
+
+void start_process()
+{
 	recv_thread_running = true;
 	std::thread recv_thread (recv_loop);
 	recv_thread.detach();
+}
 
-	std::cout << "Waiting for other machines to initialize\n";
-	while (get_peer_paths().size() < 2)
-	{
-		// block
-	}
-	std::cout << "Starting the model\n";
-	// Run the model process.
-	while (true)
-	{
-		wake_up();
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_ms));
-	}
-
-	return 0;
+void stop_process()
+{
+	recv_thread_running = false;
 }
