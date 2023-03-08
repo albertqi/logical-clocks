@@ -57,4 +57,16 @@ process. This can be verified looking at the collected data. Looking at run 1,
 the process running at 1Hz receives a message at about 1.4 messages/second, which
 is faster than it can process, so the rx queue grows unbounded. In contrast,
 in run 3, process 0 which runs at 3Hz receives (5 + 6) / 5 = 2.2 messages/second.
-2.2 < 3, so the rx queue for process 3 does not grow.
+2.2 < 3, so the rx queue for process 3 does not grow. If the probability for a
+send increases, the denominator in this inequality decreases and it becomes more
+likely for a message queue to grow.
+
+### Clock drift and jumps
+
+As discussed in the `Slow proccesses` section, if a processes is sufficiently slow,
+it will become overrun with receives and never be able to send it's clock values
+to the other processes causing infinite clock drift. If a process is able to keep
+up with receives (see `Message queue`), then the size jumps in the logical clock
+values seen by other processes are determined by how fast the process is (i.e.,
+a fast process will propogate its clocks to other procecesses more frequently
+than a slow process).
