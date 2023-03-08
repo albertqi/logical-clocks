@@ -1,5 +1,7 @@
 # CS 262: Logical Clocks
 
+Design choices and key takeaways are written in notebook.md.
+
 ## Build Information
 
 This project uses CMake to generate build files. All you need is cmake, make (or your build system of choice), and a working c++ compiler.

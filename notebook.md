@@ -27,3 +27,34 @@ Since each process knows it's own process number (see: Networking), the order
 of the clocks are always the same between processes. This makes the actual
 communication between processes simple: just send a message to one (or both) 
 of the other socket files in the directory that is not your own.
+
+## Testing methadology
+
+Since there is some randomness involved in the spec, it's important to design
+the system in a way that the randomness can be removed so the system can be
+tested. We did this by ensuring that all random numbers are depdenency injected
+instead of being calculated within the unit.
+
+## Takeaways
+
+### Slow processes
+
+One of the first things we notice from the runs is that slow processes are quickly
+overrun by receiving sends from fast processes. This causes the slow process to
+have a very up-to-date view of the logical clocks across the system, but also
+means that other processes are unaware of the slow process' clock because it
+never gets to send.
+
+### Message queue
+
+Despite a slow process getting overrun with receives, the rx queue rarely grows
+large. This is because a particular process only receives a send from another
+process 1 in 5 times the other proccess loops. Accounting for both peer processes,
+a process will only receive (Hz1 + Hz2) / 5 messages per second, where Hz1 and Hz2
+are the clock rates for the peer processes. Therefore, the rx queue will never
+grow unless (Hz1 + Hz2) / 5 > Hz3, where Hz3 is the clock rate of the examined
+process. This can be verified looking at the collected data. Looking at run 1, 
+the process running at 1Hz receives a message at about 1.4 messages/second, which
+is faster than it can process, so the rx queue grows unbounded. In contrast,
+in run 3, process 0 which runs at 3Hz receives (5 + 6) / 5 = 2.2 messages/second.
+2.2 < 3, so the rx queue for process 3 does not grow.
